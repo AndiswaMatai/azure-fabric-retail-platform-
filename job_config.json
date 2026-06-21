@@ -1,0 +1,65 @@
+{
+  "name": "medallion_daily_refresh",
+  "tags": {
+    "project": "enterprise-retail-loyalty-platform",
+    "managed_by": "terraform+adf"
+  },
+  "job_clusters": [
+    {
+      "job_cluster_key": "medallion_cluster",
+      "new_cluster": {
+        "spark_version": "14.3.x-scala2.12",
+        "policy_id": "{{databricks_cluster_policy.medallion_job_policy.id}}",
+        "autoscale": { "min_workers": 2, "max_workers": 8 },
+        "azure_attributes": {
+          "availability": "SPOT_WITH_FALLBACK_AZURE",
+          "spot_bid_max_price": -1
+        },
+        "node_type_id": "Standard_DS3_v2",
+        "custom_tags": { "project": "retail-loyalty" }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "bronze_ingest",
+      "notebook_task": {
+        "notebook_path": "/Repos/production/retail-loyalty-platform/databricks/notebooks/01_bronze_ingest",
+        "base_parameters": { "catalog": "retail_loyalty" }
+      },
+      "job_cluster_key": "medallion_cluster",
+      "timeout_seconds": 1800,
+      "max_retries": 2
+    },
+    {
+      "task_key": "silver_cleanse",
+      "depends_on": [{ "task_key": "bronze_ingest" }],
+      "notebook_task": {
+        "notebook_path": "/Repos/production/retail-loyalty-platform/databricks/notebooks/02_silver_cleanse",
+        "base_parameters": { "catalog": "retail_loyalty" }
+      },
+      "job_cluster_key": "medallion_cluster",
+      "timeout_seconds": 1800,
+      "max_retries": 1
+    },
+    {
+      "task_key": "gold_aggregate",
+      "depends_on": [{ "task_key": "silver_cleanse" }],
+      "notebook_task": {
+        "notebook_path": "/Repos/production/retail-loyalty-platform/databricks/notebooks/03_gold_aggregate",
+        "base_parameters": { "catalog": "retail_loyalty" }
+      },
+      "job_cluster_key": "medallion_cluster",
+      "timeout_seconds": 1200,
+      "max_retries": 1
+    }
+  ],
+  "email_notifications": {
+    "on_failure": ["andiswacebekhulu1@gmail.com"]
+  },
+  "webhook_notifications": {
+    "on_failure": [{ "id": "{{azure_monitor_action_group_webhook_id}}" }]
+  },
+  "max_concurrent_runs": 1,
+  "comment": "Triggered by ADF (terraform/data_factory.tf -> azurerm_data_factory_linked_service_azure_databricks). job_cluster_key uses the cost-optimized policy defined in terraform/databricks.tf."
+}
