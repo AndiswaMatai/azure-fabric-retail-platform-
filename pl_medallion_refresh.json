@@ -1,0 +1,102 @@
+{
+  "name": "pl_medallion_refresh",
+  "properties": {
+    "description": "Daily orchestration: copies source extracts into the landing zone, then triggers the Databricks medallion Job (databricks/job_config.json). Triggered by terraform/data_factory.tf's azurerm_data_factory_trigger_schedule.",
+    "activities": [
+      {
+        "name": "copy_source_extracts_to_landing",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "DelimitedTextSource",
+            "storeSettings": {
+              "type": "SftpReadSettings",
+              "recursive": true,
+              "wildcardFileName": "*.csv"
+            }
+          },
+          "sink": {
+            "type": "DelimitedTextSink",
+            "storeSettings": {
+              "type": "AzureBlobFSWriteSettings"
+            }
+          },
+          "enableStaging": false
+        },
+        "inputs": [{ "referenceName": "ds_source_pos_extract", "type": "DatasetReference" }],
+        "outputs": [{ "referenceName": "ds_landing_zone", "type": "DatasetReference" }],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        }
+      },
+      {
+        "name": "validate_landing_row_counts",
+        "type": "Lookup",
+        "dependsOn": [
+          { "activity": "copy_source_extracts_to_landing", "dependencyConditions": ["Succeeded"] }
+        ],
+        "typeProperties": {
+          "source": {
+            "type": "DelimitedTextSource"
+          },
+          "dataset": { "referenceName": "ds_landing_zone", "type": "DatasetReference" }
+        },
+        "description": "Fails fast if the landing zone is empty/truncated before spending compute on a Databricks run."
+      },
+      {
+        "name": "trigger_databricks_medallion_job",
+        "type": "DatabricksSparkPython",
+        "dependsOn": [
+          { "activity": "validate_landing_row_counts", "dependencyConditions": ["Succeeded"] }
+        ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "pythonFile": "dbfs:/jobs/medallion_daily_refresh",
+          "parameters": ["--catalog", "retail_loyalty"]
+        },
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 120
+        }
+      },
+      {
+        "name": "run_dq_suite_gate",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          { "activity": "trigger_databricks_medallion_job", "dependencyConditions": ["Succeeded"] }
+        ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "notebookPath": "/Repos/production/retail-loyalty-platform/data_quality/run_dq_suite"
+        },
+        "description": "Gate activity: if any DQ check fails, this activity fails, the pipeline fails, and the Azure Monitor alert in monitoring/alert_rules.tf fires — Gold tables are never silently published bad."
+      },
+      {
+        "name": "notify_on_failure",
+        "type": "WebHook",
+        "dependsOn": [
+          { "activity": "run_dq_suite_gate", "dependencyConditions": ["Failed"] }
+        ],
+        "typeProperties": {
+          "url": "@pipeline().parameters.alertWebhookUrl",
+          "method": "POST",
+          "body": {
+            "pipeline": "pl_medallion_refresh",
+            "status": "failed",
+            "runId": "@pipeline().RunId"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "alertWebhookUrl": {
+        "type": "string",
+        "defaultValue": "https://prod-actiongroup-webhook.azure.com/medallion-alerts"
+      }
+    },
+    "annotations": ["medallion-architecture", "retail-loyalty", "daily-batch"]
+  }
+}
