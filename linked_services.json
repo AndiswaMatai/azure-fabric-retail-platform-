@@ -1,0 +1,35 @@
+{
+  "ls_adls_lake": {
+    "type": "AzureBlobFS",
+    "typeProperties": {
+      "url": "https://stretailloyaltyprod.dfs.core.windows.net",
+      "accountKey": {
+        "type": "AzureKeyVaultSecret",
+        "store": { "referenceName": "ls_key_vault", "type": "LinkedServiceReference" },
+        "secretName": "adls-account-key"
+      }
+    },
+    "description": "ADLS Gen2 lake provisioned by terraform/storage.tf. Key Vault reference only — no credential stored here or in source control."
+  },
+  "ls_source_sftp": {
+    "type": "Sftp",
+    "typeProperties": {
+      "host": "sftp.posvendor.example.com",
+      "port": 22,
+      "authenticationType": "SshPublicKey",
+      "userName": "adf-svc-account",
+      "privateKeyContent": {
+        "type": "AzureKeyVaultSecret",
+        "store": { "referenceName": "ls_key_vault", "type": "LinkedServiceReference" },
+        "secretName": "sftp-private-key"
+      }
+    },
+    "description": "Source POS extract vendor SFTP. SSH key stored in Key Vault (terraform/security_and_monitoring.tf)."
+  },
+  "ls_key_vault": {
+    "type": "AzureKeyVault",
+    "typeProperties": {
+      "baseUrl": "https://kv-retailloyaltyprod.vault.azure.net"
+    }
+  }
+}
