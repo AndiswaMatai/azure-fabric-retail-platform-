@@ -1,0 +1,39 @@
+// Reference KQL queries for the Log Analytics workspace provisioned in
+// terraform/security_and_monitoring.tf. Used both by the alert rules in
+// alert_rules.tf and for ad-hoc on-call investigation.
+
+// ── 1. Pipeline run history, last 7 days ─────────────────────────────────
+ADFPipelineRun
+| where TimeGenerated > ago(7d)
+| where PipelineName == "pl_medallion_refresh"
+| project TimeGenerated, Status, Start, End, DurationMs = datetime_diff('millisecond', End, Start)
+| order by TimeGenerated desc
+
+// ── 2. Activity-level failure breakdown — which stage breaks most often ──
+ADFActivityRun
+| where TimeGenerated > ago(30d)
+| where PipelineName == "pl_medallion_refresh"
+| where Status == "Failed"
+| summarize FailureCount = count() by ActivityName
+| order by FailureCount desc
+
+// ── 3. Databricks Job duration trend — early warning for cost creep ─────
+DatabricksJobs
+| where TimeGenerated > ago(30d)
+| where JobName == "medallion_daily_refresh"
+| summarize AvgDurationMin = avg(DurationMinutes), MaxDurationMin = max(DurationMinutes) by bin(TimeGenerated, 1d)
+| order by TimeGenerated asc
+
+// ── 4. Storage transaction volume by container — validates lifecycle policy is working ──
+StorageBlobLogs
+| where TimeGenerated > ago(30d)
+| summarize TransactionCount = count(), TotalBytes = sum(ResponseBodySize) by Uri = tostring(split(Uri, "/")[3])
+| order by TotalBytes desc
+
+// ── 5. Cost: estimated daily Databricks DBU spend (requires DBU tag on clusters) ──
+AzureMetrics
+| where TimeGenerated > ago(30d)
+| where ResourceProvider == "MICROSOFT.DATABRICKS"
+| where MetricName == "DBUUsage"
+| summarize DailyDBUs = sum(Total) by bin(TimeGenerated, 1d)
+| order by TimeGenerated asc
