@@ -1,0 +1,44 @@
+{
+  "lakehouse": "lh_retail_loyalty_gold",
+  "description": "Fabric Lakehouse exposing the gold/ Delta tables (written by Databricks notebook 03_gold_aggregate.py) directly to Power BI via DirectLake — no data movement, no scheduled refresh, the semantic model in powerbi/ reads straight off these OneLake files.",
+  "shortcuts": [
+    {
+      "name": "sales_by_region_category_month",
+      "type": "OneLake",
+      "target": {
+        "workspaceId": "{{fabric_workspace_id}}",
+        "itemId": "{{adls_gold_container_item_id}}",
+        "path": "gold/sales_by_region_category_month"
+      },
+      "comment": "Shortcut to the ADLS Gen2 gold container provisioned by terraform/storage.tf — Fabric reads it without copying the data into OneLake."
+    },
+    {
+      "name": "loyalty_tier_value",
+      "type": "OneLake",
+      "target": {
+        "workspaceId": "{{fabric_workspace_id}}",
+        "itemId": "{{adls_gold_container_item_id}}",
+        "path": "gold/loyalty_tier_value"
+      }
+    },
+    {
+      "name": "store_performance",
+      "type": "OneLake",
+      "target": {
+        "workspaceId": "{{fabric_workspace_id}}",
+        "itemId": "{{adls_gold_container_item_id}}",
+        "path": "gold/store_performance"
+      }
+    },
+    {
+      "name": "loyalty_points_liability",
+      "type": "OneLake",
+      "target": {
+        "workspaceId": "{{fabric_workspace_id}}",
+        "itemId": "{{adls_gold_container_item_id}}",
+        "path": "gold/loyalty_points_liability"
+      }
+    }
+  ],
+  "why_shortcuts_not_copies": "OneLake shortcuts mean the existing ADLS Gen2 gold container (already governed by the storage lifecycle policy and RBAC in terraform/storage.tf) becomes a Fabric Lakehouse with zero data duplication and zero extra storage cost — Fabric just points at it."
+}

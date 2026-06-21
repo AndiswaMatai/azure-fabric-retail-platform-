@@ -1,0 +1,31 @@
+{
+  "name": "es_loyalty_realtime_events",
+  "description": "Real-time leg of the platform: POS terminals publish loyalty earn/redeem events to Event Hubs as they happen (a customer redeeming points at checkout, a points expiry job firing). This Eventstream lands them directly into the Bronze Lakehouse, sitting alongside the batch ADF/Databricks pipeline for transactions/customers/products/stores, which only need daily freshness.",
+  "source": {
+    "type": "AzureEventHub",
+    "eventHubName": "eh-loyalty-events",
+    "consumerGroup": "$Default",
+    "connectionStringSecretRef": "kv-retailloyaltyprod/eventhub-connection-string",
+    "format": "json"
+  },
+  "transformations": [
+    {
+      "type": "filter",
+      "condition": "event_type IN ('earn', 'redeem', 'expire')"
+    },
+    {
+      "type": "manage_fields",
+      "addColumns": [
+        { "name": "_eventstream_ingested_ts", "expression": "system.timestamp()" }
+      ]
+    }
+  ],
+  "destination": {
+    "type": "Lakehouse",
+    "workspace": "Retail-Loyalty-Platform-PROD",
+    "lakehouse": "lh_retail_loyalty_bronze",
+    "table": "bronze.loyalty_events_realtime",
+    "writeMode": "append"
+  },
+  "notes": "This realtime table is unioned with the batch bronze.loyalty_events table (from 01_bronze_ingest.py) in 02_silver_cleanse.py before SCD2/referential-integrity checks run, so both feeds converge into one Silver table regardless of arrival path."
+}
