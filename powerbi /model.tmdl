@@ -1,0 +1,195 @@
+// Power BI Semantic Model — Retail & Loyalty Intelligence
+//
+// TMDL (Tabular Model Definition Language) definition of the star schema
+// consumed via DirectLake straight off the Gold Delta tables in
+// data/lakehouse/gold/ (locally) / OneLake (production — see
+// fabric/lakehouse_shortcuts.json).
+//
+// DirectLake means this semantic model has NO import/refresh schedule —
+// it reads the Delta Parquet files directly, so query results are always
+// current the moment Databricks notebook 03_gold_aggregate.py finishes writing.
+
+model RetailLoyaltyIntelligence
+	culture: en-ZA
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-ZA
+
+// ───────────────────────── Fact tables ─────────────────────────
+
+table fact_sales
+	lineageTag: fact-sales-001
+
+	column month
+		dataType: string
+		sourceColumn: month
+
+	column region
+		dataType: string
+		sourceColumn: region
+
+	column category
+		dataType: string
+		sourceColumn: category
+
+	column revenue
+		dataType: double
+		sourceColumn: revenue
+		formatString: "R #,0.00"
+		summarizeBy: sum
+
+	column units
+		dataType: int64
+		sourceColumn: units
+		summarizeBy: sum
+
+	column gross_margin
+		dataType: double
+		sourceColumn: gross_margin
+		formatString: "R #,0.00"
+		summarizeBy: sum
+
+	column transactions
+		dataType: int64
+		sourceColumn: transactions
+		summarizeBy: sum
+
+	measure 'Total Revenue' = SUM(fact_sales[revenue])
+		formatString: "R #,0.00"
+
+	measure 'Gross Margin %' = DIVIDE(SUM(fact_sales[gross_margin]), SUM(fact_sales[revenue]))
+		formatString: "0.0%"
+
+	measure 'Revenue per Transaction' = DIVIDE(SUM(fact_sales[revenue]), SUM(fact_sales[transactions]))
+		formatString: "R #,0.00"
+
+	measure 'YoY Revenue Growth %' = ```
+			VAR CurrentRevenue = [Total Revenue]
+			VAR PriorYearRevenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('dim_date'[date]))
+			RETURN DIVIDE(CurrentRevenue - PriorYearRevenue, PriorYearRevenue)
+		```
+		formatString: "0.0%"
+
+	partition fact_sales = entity
+		mode: directLake
+		source
+			entityName: sales_by_region_category_month
+			schemaName: gold
+
+
+table fact_store_performance
+	lineageTag: fact-store-perf-001
+
+	column store_id
+		dataType: string
+		sourceColumn: store_id
+
+	column store_format
+		dataType: string
+		sourceColumn: store_format
+
+	column region
+		dataType: string
+		sourceColumn: region
+
+	column revenue
+		dataType: double
+		sourceColumn: revenue
+		formatString: "R #,0.00"
+		summarizeBy: sum
+
+	column gross_margin
+		dataType: double
+		sourceColumn: gross_margin
+		summarizeBy: sum
+
+	measure 'Avg Revenue per Store' = AVERAGE(fact_store_performance[revenue])
+		formatString: "R #,0.00"
+
+	partition fact_store_performance = entity
+		mode: directLake
+		source
+			entityName: store_performance
+			schemaName: gold
+
+
+table fact_loyalty_tier_value
+	lineageTag: fact-loyalty-001
+
+	column loyalty_tier
+		dataType: string
+		sourceColumn: loyalty_tier
+
+	column customers
+		dataType: int64
+		sourceColumn: customers
+		summarizeBy: sum
+
+	column revenue
+		dataType: double
+		sourceColumn: revenue
+		formatString: "R #,0.00"
+		summarizeBy: sum
+
+	column avg_basket
+		dataType: double
+		sourceColumn: avg_basket
+		formatString: "R #,0.00"
+
+	measure 'Revenue per Loyalty Customer' = DIVIDE(SUM(fact_loyalty_tier_value[revenue]), SUM(fact_loyalty_tier_value[customers]))
+		formatString: "R #,0.00"
+
+	partition fact_loyalty_tier_value = entity
+		mode: directLake
+		source
+			entityName: loyalty_tier_value
+			schemaName: gold
+
+
+// ───────────────────────── Dimension tables ─────────────────────────
+
+table dim_date
+	lineageTag: dim-date-001
+	isDateTable
+
+	column date
+		dataType: dateTime
+		sourceColumn: date
+
+	column year
+		dataType: int64
+		sourceColumn: year
+
+	column month_name
+		dataType: string
+		sourceColumn: month_name
+
+	column quarter
+		dataType: string
+		sourceColumn: quarter
+
+	hierarchy 'Calendar Hierarchy'
+		level Year
+			column: year
+		level Quarter
+			column: quarter
+		level Month
+			column: month_name
+
+
+// ───────────────────────── Relationships ─────────────────────────
+
+relationship fact-sales-to-date
+	fromColumn: fact_sales.month
+	toColumn: dim_date.month_name
+	crossFilteringBehavior: oneDirection
+
+// ───────────────────────── Perspectives ─────────────────────────
+// Restrict each business audience's default view to relevant tables only
+
+perspective ExecutiveSummary
+	table fact_sales
+	table fact_loyalty_tier_value
+
+perspective StoreOperations
+	table fact_store_performance
+	table dim_date
