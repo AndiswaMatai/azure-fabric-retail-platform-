@@ -1,0 +1,32 @@
+{
+  "ds_source_pos_extract": {
+    "type": "DelimitedText",
+    "linkedServiceName": { "referenceName": "ls_source_sftp", "type": "LinkedServiceReference" },
+    "typeProperties": {
+      "location": {
+        "type": "SftpLocation",
+        "folderPath": "exports/pos"
+      },
+      "columnDelimiter": ",",
+      "firstRowAsHeader": true
+    },
+    "description": "Daily POS transaction extract dropped by the in-store systems integration."
+  },
+  "ds_landing_zone": {
+    "type": "DelimitedText",
+    "linkedServiceName": { "referenceName": "ls_adls_lake", "type": "LinkedServiceReference" },
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobFSLocation",
+        "fileSystem": "landing",
+        "folderPath": "@dataset().tableName"
+      },
+      "columnDelimiter": ",",
+      "firstRowAsHeader": true
+    },
+    "parameters": {
+      "tableName": { "type": "string" }
+    },
+    "description": "Landing zone container that Databricks Auto Loader watches (notebooks/01_bronze_ingest.py)."
+  }
+}
