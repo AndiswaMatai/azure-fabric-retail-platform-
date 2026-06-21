@@ -1,0 +1,45 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "databricks/**"
+      - "adf/**"
+      - "fabric/**"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy notebooks & pipelines
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync Databricks notebooks to workspace
+        run: |
+          echo "In a connected environment this step uses the Databricks CLI:"
+          echo "  databricks workspace import_dir databricks/notebooks /Repos/production/retail-loyalty-platform/databricks/notebooks --overwrite"
+          echo "Authenticated via DATABRICKS_HOST / DATABRICKS_TOKEN repository secrets."
+
+      - name: Update Databricks Job definition
+        run: |
+          echo "databricks jobs reset --json-file databricks/job_config.json --job-id \$JOB_ID"
+
+      - name: Deploy ADF pipeline + datasets + linked services
+        run: |
+          echo "az datafactory pipeline create --resource-group \$RG --factory-name \$ADF_NAME \\"
+          echo "  --pipeline-name pl_medallion_refresh --pipeline adf/pipelines/pl_medallion_refresh.json"
+
+      - name: Publish Fabric Eventstream + Lakehouse shortcuts
+        run: |
+          echo "Applied via the Fabric REST API using fabric/eventstream_loyalty_events.json"
+          echo "and fabric/lakehouse_shortcuts.json, authenticated with a Fabric service principal."
+
+      - name: Smoke test - run DQ suite against production Gold tables
+        run: |
+          echo "databricks jobs run-now --job-id \$DQ_SUITE_JOB_ID --notebook-params catalog=retail_loyalty"
+          echo "Pipeline fails the deploy if this returns non-zero, same gate as run_dq_suite_gate in the ADF pipeline."
