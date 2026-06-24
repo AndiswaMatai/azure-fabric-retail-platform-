@@ -4,6 +4,11 @@
 ![CI](https://img.shields.io/badge/CI-passing-0f7a4b?style=flat&logo=githubactions)
 ![IaC](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat&logo=terraform)
 ![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat&logo=python)
+![Azure](https://img.shields.io/badge/Cloud-Azure-blue?logo=microsoftazure)
+![Databricks](https://img.shields.io/badge/Platform-Databricks-orange?logo=databricks)
+![Power BI](https://img.shields.io/badge/BI-Power%20BI-yellow?logo=powerbi)
+![Terraform](https://img.shields.io/badge/DevOps-Terraform-purple?logo=terraform)
+
 
 **[← Back to live portfolio](https://andiswamatai.github.io)**
 
