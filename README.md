@@ -1,4 +1,4 @@
-# Enterprise Retail & Loyalty Intelligence Platform
+# 🏢 Enterprise Retail & Loyalty Intelligence Platform
 
 ![Sector](https://img.shields.io/badge/Sector-Flagship%20%C2%B7%20Azure%20%2F%20Fabric-1F3864?style=flat)
 ![CI](https://img.shields.io/badge/CI-passing-0f7a4b?style=flat&logo=githubactions)
@@ -7,70 +7,74 @@
 
 **[← Back to live portfolio](https://andiswamatai.github.io)**
 
-A signature, end-to-end Azure data platform: Azure Data Factory orchestrating Databricks medallion notebooks writing Delta tables that Microsoft Fabric exposes to Power BI via DirectLake — with the infrastructure, data quality, monitoring, cost optimization, and CI/CD that turn a pipeline into a production platform, not a demo script.
+## 🚀 Overview
 
-This is the most architecturally complete repository in my portfolio. Where my other projects each prove one engineering skill in isolation (reconciliation logic, fraud rules, medallion patterns), this one shows how those skills compose into a single governed system, end to end.
+A full end-to-end enterprise data platform that demonstrates how modern retail and loyalty systems are engineered on Azure using a governed Lakehouse architecture.
 
-## Why this exists
+The platform integrates Azure Data Factory, Databricks (Medallion architecture), and Microsoft Fabric to deliver curated, analytics-ready datasets exposed through Power BI DirectLake semantic models.
 
-Most portfolio projects show a pipeline. They don't show what it actually takes to run that pipeline safely in an organisation: who gets paged when it breaks, what stops a bad record from reaching a board report, what the infrastructure costs and how that's controlled, and how a change gets from a developer's laptop to production without someone manually clicking through the Azure portal. This repository answers all of those questions with real artifacts, not just a paragraph in a README.
+It represents a complete production-style data ecosystem — including ingestion, transformation, data quality, monitoring, CI/CD, and cost governance.
+
+---
+
+## 🧠 Why this exists
+
+Most data engineering portfolios demonstrate pipelines.
+
+Very few demonstrate **platform thinking**.
+
+This repository goes beyond pipeline design to answer real enterprise questions:
+
+- How does data move safely from ingestion to executive dashboards?
+- How is data quality enforced before business consumption?
+- What prevents bad data from reaching board-level reporting?
+- How is infrastructure deployed, governed, and cost-optimised?
+- How does a change move from code → test → production safely?
+
+This project models those realities end-to-end.
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    subgraph Sources["Source Systems"]
-        POS[("POS Systems\n(SFTP extract)")]
-        EH_Source[("POS Terminals\n(real-time loyalty events)")]
-    end
+📡 Data Sources
+- Retail Transactions
+- Loyalty Systems
+- Customer Behaviour Events
 
-    subgraph Ingest["Ingestion"]
-        ADF["Azure Data Factory\npl_medallion_refresh.json"]
-        EventHub["Azure Event Hubs"]
-        Eventstream["Fabric Eventstream"]
-    end
+        ↓
 
-    subgraph Compute["Processing — Databricks"]
-        Bronze["01_bronze_ingest.py\nAuto Loader"]
-        Silver["02_silver_cleanse.py\nCleanse + SCD2 + DQ"]
-        Gold["03_gold_aggregate.py\nBusiness KPIs"]
-    end
+🟦 Azure Data Factory
+- Orchestration layer
+- Pipeline scheduling
+- Ingestion coordination
 
-    subgraph Storage["OneLake / ADLS Gen2"]
-        BronzeTable[("Bronze Delta")]
-        SilverTable[("Silver Delta")]
-        GoldTable[("Gold Delta")]
-    end
+        ↓
 
-    subgraph Serve["Serving Layer"]
-        Fabric["Fabric Lakehouse\nshortcuts (zero-copy)"]
-        PBI["Power BI\nDirectLake semantic model"]
-    end
+🟨 Databricks (Medallion Architecture)
 
-    subgraph Ops["Platform Operations"]
-        Terraform["Terraform IaC"]
-        Monitor["Azure Monitor\nalert_rules.tf"]
-        Cost["Cost Optimization\nlifecycle + spot + autoterm"]
-        CICD["GitHub Actions\nCI / Terraform Plan / CD"]
-    end
+    🥉 Bronze Layer
+    - Raw ingested data
 
-    POS -->|SFTP, daily| ADF
-    EH_Source -->|Kafka-compatible| EventHub --> Eventstream
+    🥈 Silver Layer
+    - Cleansed + standardized + conformed data
 
-    ADF --> Bronze
-    Eventstream --> BronzeTable
-    Bronze --> BronzeTable --> Silver --> SilverTable --> Gold --> GoldTable
-    GoldTable --> Fabric --> PBI
+    🥇 Gold Layer
+    - Business-ready loyalty + retail analytics models
 
-    Terraform -.provisions.-> Storage
-    Terraform -.provisions.-> Compute
-    Terraform -.provisions.-> Ingest
-    Monitor -.watches.-> ADF
-    Monitor -.watches.-> Compute
-    CICD -.deploys.-> Compute
-    CICD -.deploys.-> Ingest
-```
+        ↓
 
+🟪 Microsoft Fabric
+- Lakehouse exposure layer
+- Eventstream integration
+- Semantic modelling
+
+        ↓
+
+📊 Power BI (DirectLake)
+- Loyalty dashboards
+- Customer analytics
+- Executive reporting layer
+
+---
 ## What's actually runnable vs. what's reference architecture
 
 Being upfront about this, the same way I would in an interview:
@@ -90,66 +94,89 @@ Being upfront about this, the same way I would in an interview:
 ## Repository Structure
 
 ```
-engine/                  Local-runnable medallion pipeline (the proof it works)
-databricks/notebooks/    Production PySpark notebooks (1:1 mirror of engine/)
-adf/                     Pipeline, dataset, and linked service definitions
-fabric/                  Eventstream + Lakehouse shortcut configs
-terraform/               Full IaC: storage, ADF, Databricks, Key Vault, budget
-monitoring/              Azure Monitor alert rules + reference KQL queries
-cost_optimization/       Working cost model + the controls it measures
-powerbi/                 TMDL semantic model + DAX measures
-data_quality/            Standalone DQ framework (completeness/unique/RI/freshness)
-tests/                   Unit tests for engine + DQ framework
-.github/workflows/       CI, Terraform Plan, CD
+engine/                  Local medallion pipeline (portable version of Databricks logic)
+databricks/notebooks/    Production PySpark notebooks (1:1 mirror of engine)
+adf/                     Azure Data Factory pipelines + linked services
+fabric/                  Microsoft Fabric Lakehouse + eventstream configs
+terraform/               Full infrastructure-as-code (ADF, Databricks, Storage, IAM)
+monitoring/              Azure Monitor alerts + KQL queries
+powerbi/                 Semantic model (TMDL + DAX measures)
+data_quality/            Data quality framework (DQ gates + rules engine)
+cost_optimization/       Cost modelling (compute + storage + efficiency gains)
+tests/                   Unit tests for pipeline + DQ + transformations
+.github/workflows/       CI/CD pipelines (test → plan → deploy simulation)
 ```
 
-## Running the local pipeline
+## Engineering Design Principle
 
-```bash
-pip install -r requirements.txt
-python engine/generate_sample_data.py     # ~6s, ~590K rows
-python engine/medallion_pipeline.py       # ~7s, full Bronze→Silver→Gold
-python data_quality/run_dq_suite.py       # DQ gate — same checks as production
-python cost_optimization/cost_calculator.py
-```
+This platform demonstrates enterprise-grade data architecture principles:
 
-Run the tests:
-
-```bash
-python -m unittest discover -s tests -v
-```
+- Medallion architecture (Bronze → Silver → Gold)
+- Separation of ingestion, transformation, and consumption layers
+- Data quality enforced as a pipeline gate (not a downstream fix)
+- Event-driven + batch convergence into unified Silver layer
+- Infrastructure-as-Code (Terraform) for reproducibility
+- CI/CD-driven deployment lifecycle
+- Cost-aware cloud architecture design
+- Semantic modelling for BI consumption (Power BI DirectLake)
 
 ## Sample Output
 
 ```
-LOYALTY TIER VALUE
-loyalty_tier  customers      revenue  avg_basket
-      Bronze      18177 199371054.25     1099.40
-        Gold       7139  78011617.73     1100.26
-    Platinum       2708  29456431.62     1100.11
-      Silver      11976 131510358.18     1101.66
+LOYALTY TIER PERFORMANCE
 
-DATA QUALITY: 0 of 6 checks failed. Gold layer is safe to publish to Power BI.
-
-COST OPTIMIZATION:
-  Storage lifecycle tiering savings:  R510.00/month   (55.9%)
-  Databricks spot instance savings:   R5,747.70/month (59.5%)
-  TOTAL ESTIMATED ANNUAL SAVINGS:     R76,196.40
+loyalty_tier | customers | revenue        | avg_basket
+-------------|-----------|----------------|------------
+Bronze       | 18177     | 199,371,054.25 | 1099.40
+Silver       | 11976     | 131,510,358.18 | 1101.66
+Gold         | 7139      | 78,011,617.73  | 1100.26
+Platinum     | 2708      | 29,456,431.62  | 1100.11
 ```
 
-## Production readiness checklist
+## Data Quality Layer
 
-- [x] Infrastructure as Code (Terraform, environment-separated via `.tfvars`)
-- [x] CI/CD (GitHub Actions: test → plan → deploy, with a DQ smoke test gate)
-- [x] Data quality enforced as a pipeline gate, not an afterthought
-- [x] Monitoring & alerting (3 distinct alert rules, tiered by severity)
-- [x] Cost optimization (storage tiering, spot compute, autotermination — all measured)
-- [x] Secrets via Key Vault references, never in source control
-- [x] Managed identity auth between ADF, Databricks, and storage — no stored credentials
-- [x] SCD Type 2 dimension for full historical accuracy
-- [x] Real-time + batch ingestion paths, converging into one Silver table
-- [x] Semantic layer (Power BI DirectLake) with documented DAX and perspectives
+All Gold-layer datasets are validated before publication using:
 
-## License
+- Completeness checks
+- Uniqueness constraints
+- Referential integrity validation
+- Freshness SLAs
 
-MIT — all data is synthetic.
+Result:
+
+✔ 0 of 6 data quality checks failed  
+✔ Gold layer approved for Power BI consumption
+
+
+## COST OPTIMISATION RESULTS
+
+- Storage lifecycle tiering savings: 55.9%
+- Databricks spot instance savings: 59.5%
+- Estimated annual savings: R76,196.40
+
+Includes:
+- Auto-termination policies
+- Storage tiering (hot → cool → archive)
+- Spot compute usage strategy
+---
+## Business Value
+
+This platform enables retail organisations to:
+
+- Understand customer lifetime value and segmentation
+- Improve loyalty program effectiveness
+- Reduce cloud infrastructure costs through optimisation
+- Ensure data governance and compliance
+- Deliver trusted executive-level reporting
+---
+## Production Enhancement
+
+If deployed in enterprise environments:
+
+- Azure Data Factory for orchestration
+- Databricks jobs for scalable transformation
+- Microsoft Fabric for unified analytics layer
+- Power BI DirectLake for real-time dashboards
+- Key Vault for secrets management
+- Azure Monitor for alerting and observability
+- Terraform for full infrastructure lifecycle management
