@@ -38,7 +38,8 @@ This repository answers enterprise questions:
 
 ---
 
-## 📂 Repository Structure
+## 📂 Project Structure
+```
 retail-loyalty-intelligence/
 ├── engine/             # Local medallion pipeline (portable Databricks logic)
 ├── databricks/         # Production PySpark notebooks (1:1 mirror of engine)
@@ -52,7 +53,7 @@ retail-loyalty-intelligence/
 ├── tests/              # Unit tests for pipeline + DQ + transformations
 ├── .github/workflows/  # CI/CD pipelines (test → plan → deploy simulation)
 └── README.md           # Documentation
-
+```
 
 ---
 
